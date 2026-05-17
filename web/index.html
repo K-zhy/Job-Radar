@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Job Radar | 本地岗位控制台</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy rise-in">
+          <p class="eyebrow">Job Radar</p>
+          <h1>Job Radar</h1>
+          <p class="hero-text">
+            把原来分散在 YAML 和脚本里的招聘流程，收束成一个本地单机控制台：岗位库、偏好抓取、NL2SQL 分析都放在一个页面里。
+          </p>
+          <div class="hero-actions">
+            <button class="button" type="button" data-jump="jobs">看岗位库</button>
+            <button class="button secondary" type="button" data-jump="analysis">做分析</button>
+          </div>
+        </div>
+        <div class="hero-board rise-in delay-1">
+          <div class="hero-note">
+            <span class="chip">本地运行</span>
+            <span class="chip">SQLite</span>
+            <span class="chip">YAML 兼容</span>
+          </div>
+          <div class="stats-grid" id="heroStats">
+            <article class="stat-card accent-sand">
+              <span class="stat-label">岗位总数</span>
+              <strong class="stat-value" data-stat="total">0</strong>
+            </article>
+            <article class="stat-card accent-green">
+              <span class="stat-label">已投递</span>
+              <strong class="stat-value" data-stat="applied">0</strong>
+            </article>
+            <article class="stat-card accent-ink">
+              <span class="stat-label">A 档 JD</span>
+              <strong class="stat-value" data-stat="qualityA">0</strong>
+            </article>
+            <article class="stat-card accent-copper">
+              <span class="stat-label">待处理</span>
+              <strong class="stat-value" data-stat="pending">0</strong>
+            </article>
+          </div>
+        </div>
+      </header>
+
+      <nav class="tab-bar rise-in delay-2" aria-label="页面导航">
+        <button class="tab-button is-active" type="button" data-tab="jobs">岗位库</button>
+        <button class="tab-button" type="button" data-tab="prefs">偏好设置</button>
+        <button class="tab-button" type="button" data-tab="apis">API 管理</button>
+        <button class="tab-button" type="button" data-tab="analysis">NL2SQL 分析</button>
+        <button class="tab-button" type="button" data-tab="resume">简历分析</button>
+      </nav>
+
+      <main>
+        <section class="panel tab-panel is-active" id="panel-jobs" data-panel="jobs">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">岗位总览</p>
+              <h2>当前岗位库</h2>
+            </div>
+            <div class="inline-actions">
+              <button class="button" id="toggleManualJobButton" type="button">手动添加岗位</button>
+              <button class="button ghost" id="syncJobsButton" type="button">从 YAML 重载</button>
+              <button class="button secondary" id="reloadJobsButton" type="button">刷新表格</button>
+            </div>
+          </div>
+
+          <div class="bulk-toolbar" id="bulkToolbar">
+            <label class="check-field bulk-select-all">
+              <input id="selectAllJobsCheckbox" type="checkbox">
+              <span>本页全选</span>
+            </label>
+            <span class="micro-copy" id="bulkSelectionCount">已选 0 条</span>
+            <button class="button danger tiny" id="bulkDeleteButton" type="button" disabled>批量删除</button>
+          </div>
+
+          <form class="filter-bar" id="jobsFilterForm">
+            <label class="field compact">
+              <span>关键词</span>
+              <input id="filterKeyword" name="keyword" type="text" placeholder="公司、岗位、JD、标签">
+            </label>
+            <label class="field compact">
+              <span>状态</span>
+              <select id="filterStatus" name="status">
+                <option value="">全部</option>
+                <option value="pending">pending</option>
+                <option value="applied">applied</option>
+                <option value="interviewing">interviewing</option>
+                <option value="offered">offered</option>
+                <option value="rejected">rejected</option>
+                <option value="ghosted">ghosted</option>
+              </select>
+            </label>
+            <label class="field compact">
+              <span>地点</span>
+              <input id="filterLocation" name="location" type="text" placeholder="上海 / 杭州">
+            </label>
+            <label class="field compact">
+              <span>投递</span>
+              <select id="filterApplied" name="applied">
+                <option value="">全部</option>
+                <option value="true">已投递</option>
+                <option value="false">未投递</option>
+              </select>
+            </label>
+            <div class="filter-actions">
+              <button class="button" type="submit">筛选</button>
+              <button class="button ghost" id="resetFiltersButton" type="button">重置</button>
+            </div>
+          </form>
+
+          <section class="manual-job-card" id="manualJobPanel" hidden>
+            <div class="manual-job-head">
+              <div>
+                <h3>手动添加岗位</h3>
+                <p class="micro-copy">提交后会直接写入 SQLite，并回写到 internships.yaml。</p>
+              </div>
+            </div>
+            <form class="manual-job-grid" id="manualJobForm">
+              <label class="field compact">
+                <span>公司名称</span>
+                <input id="manualJobCompany" type="text" placeholder="公司名称" required>
+              </label>
+              <label class="field compact">
+                <span>职位名称</span>
+                <input id="manualJobTitle" type="text" placeholder="职位名称" required>
+              </label>
+              <label class="field compact">
+                <span>薪资</span>
+                <input id="manualJobSalary" type="text" placeholder="30-50K / 300-400元/天">
+              </label>
+              <label class="field compact">
+                <span>Base 地</span>
+                <input id="manualJobLocation" type="text" placeholder="上海 / 杭州">
+              </label>
+              <label class="field compact">
+                <span>公司规模</span>
+                <input id="manualJobCompanySize" type="text" placeholder="100-499人 / 10000人以上">
+              </label>
+              <label class="field compact">
+                <span>岗位类型</span>
+                <select id="manualJobType">
+                  <option value="全职">全职</option>
+                  <option value="实习">实习</option>
+                  <option value="校招">校招</option>
+                </select>
+              </label>
+              <label class="field compact manual-job-span-2">
+                <span>投递链接</span>
+                <input id="manualJobUrl" type="url" placeholder="https://...">
+              </label>
+              <label class="field compact manual-job-span-2">
+                <span>JD 内容</span>
+                <textarea id="manualJobJdFull" rows="5" placeholder="可粘贴原始 JD 或你的补充说明"></textarea>
+              </label>
+              <div class="inline-actions manual-job-actions manual-job-span-2">
+                <button class="button secondary" id="submitManualJobButton" type="submit">保存到岗位库</button>
+                <button class="button ghost" id="cancelManualJobButton" type="button">取消</button>
+              </div>
+            </form>
+          </section>
+
+          <div class="pagination-toolbar" id="paginationToolbar">
+            <label class="field compact pagination-size-field">
+              <span>每页显示</span>
+              <select id="pageSizeSelect">
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <span class="micro-copy" id="paginationSummary">第 1 / 1 页，共 0 条</span>
+            <div class="inline-actions pagination-actions">
+              <button class="button ghost tiny" id="prevPageButton" type="button">上一页</button>
+              <button class="button ghost tiny" id="nextPageButton" type="button">下一页</button>
+            </div>
+          </div>
+
+          <div class="table-shell">
+            <table class="jobs-table" id="jobsTable">
+              <colgroup>
+                <col class="jobs-col-select">
+                <col class="jobs-col-company">
+                <col class="jobs-col-title">
+                <col class="jobs-col-salary">
+                <col class="jobs-col-location">
+                <col class="jobs-col-jd">
+                <col class="jobs-col-link">
+                <col class="jobs-col-status">
+                <col class="jobs-col-applied">
+                <col class="jobs-col-action">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>选中</th>
+                  <th>公司</th>
+                  <th>职位</th>
+                  <th>薪资</th>
+                  <th>地点</th>
+                  <th>JD / 标签</th>
+                  <th>链接</th>
+                  <th>状态</th>
+                  <th>已投递</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="jobsTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination-toolbar bottom" id="paginationToolbarBottom">
+            <span class="micro-copy" id="paginationSummaryBottom">第 1 / 1 页，共 0 条</span>
+            <div class="inline-actions pagination-actions">
+              <button class="button ghost tiny" id="prevPageButtonBottom" type="button">上一页</button>
+              <button class="button ghost tiny" id="nextPageButtonBottom" type="button">下一页</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel tab-panel" id="panel-prefs" data-panel="prefs">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">抓取控制</p>
+              <h2>岗位偏好设置</h2>
+            </div>
+            <p class="micro-copy">这一页直接读写 internship-prefs.yaml。</p>
+          </div>
+
+          <form class="prefs-grid" id="prefsForm">
+            <label class="field">
+              <span>目标城市</span>
+              <textarea id="prefsCities" rows="4" placeholder="一行一个城市"></textarea>
+            </label>
+            <label class="field">
+              <span>搜索关键词</span>
+              <textarea id="prefsQueries" rows="4" placeholder="一行一个岗位关键词"></textarea>
+            </label>
+            <label class="field">
+              <span>公司规模</span>
+              <textarea id="prefsScales" rows="4" placeholder="一行一个规模"></textarea>
+            </label>
+            <label class="field">
+              <span>偏好标签</span>
+              <textarea id="prefsPreferredTags" rows="4" placeholder="一行一个标签"></textarea>
+            </label>
+
+            <label class="field compact">
+              <span>职位类型</span>
+              <select id="prefsJobType">
+                <option value="全职">全职</option>
+                <option value="实习">实习</option>
+                <option value="校招">校招</option>
+              </select>
+            </label>
+            <label class="field compact">
+              <span>最低日薪（仅实习）</span>
+              <input id="prefsMinDay" type="number" min="0" step="50">
+            </label>
+            <label class="field compact">
+              <span>最低月薪</span>
+              <input id="prefsMinMonth" type="number" min="0" step="1000">
+            </label>
+            <div class="field compact hint-card">
+              <span>说明</span>
+              <p>抓取入口会继续复用现有 Python 脚本，抓回来的岗位会先写 YAML，再自动同步进 SQLite。全职/校招只看月薪，最低日薪仅对实习岗位生效。</p>
+            </div>
+
+            <label class="field">
+              <span>排除大厂</span>
+              <textarea id="prefsExcludeBigTech" rows="5" placeholder="留空表示用默认排除，写 无 表示不排除"></textarea>
+            </label>
+            <label class="field">
+              <span>排除非技术岗</span>
+              <textarea id="prefsExcludeNonTech" rows="5"></textarea>
+            </label>
+            <label class="field">
+              <span>额外排除词</span>
+              <textarea id="prefsExcludeExtra" rows="5"></textarea>
+            </label>
+            <label class="field">
+              <span>个人备注</span>
+              <textarea id="prefsProfileNote" rows="5" placeholder="给分析页和后续投递流程补充上下文"></textarea>
+            </label>
+
+            <label class="field compact">
+              <span>学历</span>
+              <input id="prefsEducation" type="text" placeholder="本科 / 硕士">
+            </label>
+            <label class="field compact">
+              <span>可实习时长</span>
+              <input id="prefsDuration" type="text" placeholder="3个月以上">
+            </label>
+          </form>
+
+          <div class="inline-actions prefs-actions">
+            <button class="button secondary" id="savePrefsButton" type="button">保存偏好</button>
+          </div>
+
+          <div class="fetch-grid">
+            <div class="fetch-card">
+              <h3>抓取选项</h3>
+              <p class="micro-copy fetch-note">抓取会复用一个独立的 Chrome 抓取窗口，当前控制台页面不会被跳走。</p>
+              <label class="check-field">
+                <input id="fetchIncludeJd" type="checkbox">
+                <span>抓到岗位后顺带补抓 JD</span>
+              </label>
+              <label class="check-field">
+                <input id="fetchIncludeSummary" type="checkbox">
+                <span>抓到岗位后顺带生成摘要</span>
+              </label>
+              <div class="fetch-inline-grid">
+                <label class="field compact">
+                  <span>岗位抓取上限</span>
+                  <input id="fetchJobLimit" type="number" min="0" value="100">
+                </label>
+                <label class="field compact">
+                  <span>JD 抓取上限</span>
+                  <input id="fetchJdLimit" type="number" min="1" max="50" value="10">
+                </label>
+                <label class="field compact">
+                  <span>摘要上限</span>
+                  <input id="fetchSummaryLimit" type="number" min="1" value="10">
+                </label>
+              </div>
+              <div class="inline-actions">
+                <button class="button" id="runFetchButton" type="button">根据偏好抓岗位</button>
+                <button class="button ghost" id="stopFetchButton" type="button" disabled>终止抓取</button>
+              </div>
+            </div>
+            <div class="fetch-card log-card">
+              <div class="log-head">
+                <h3>任务日志</h3>
+                <span class="micro-copy" id="fetchStatusMeta">当前没有抓取任务</span>
+              </div>
+              <div class="fetch-status-card">
+                <div class="fetch-status-head">
+                  <strong id="fetchStatusLabel">空闲</strong>
+                  <span class="micro-copy" id="fetchStatusHint">等待操作…</span>
+                </div>
+                <div class="progress-track" aria-hidden="true">
+                  <div class="progress-value" id="fetchProgressBar"></div>
+                </div>
+              </div>
+              <pre id="fetchLog">等待操作…</pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel tab-panel" id="panel-apis" data-panel="apis">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">统一配置</p>
+              <h2>API 管理</h2>
+            </div>
+            <p class="micro-copy">所有密钥只保存在本地 api-config.yaml，供分析和 Notion 同步共用。</p>
+          </div>
+
+          <div class="api-grid">
+            <div class="fetch-card api-card">
+              <div class="log-head">
+                <h3>模型服务</h3>
+                <span class="micro-copy">供 NL2SQL 分析使用</span>
+              </div>
+              <p class="fetch-note">统一维护模型的 Base URL、模型名和 API Key，分析页会直接读取这里的配置。</p>
+              <div class="analysis-config">
+                <label class="field compact">
+                  <span>Base URL</span>
+                  <input id="apiLlmBaseUrl" type="text" placeholder="https://api.openai.com/v1">
+                </label>
+                <label class="field compact">
+                  <span>Model</span>
+                  <input id="apiLlmModel" type="text" placeholder="gpt-4.1-mini / deepseek-chat">
+                </label>
+                <label class="field compact">
+                  <span>API Key</span>
+                  <input id="apiLlmApiKey" type="password" placeholder="sk-...">
+                </label>
+              </div>
+            </div>
+
+            <div class="fetch-card api-card">
+              <div class="log-head">
+                <h3>Notion 集成</h3>
+                <span class="micro-copy">供 notion_sync.py 使用</span>
+              </div>
+              <p class="fetch-note">把 Notion API Key 和数据库 ID 放到统一配置里，脚本会优先读取这里，不再只依赖环境变量或偏好文件。</p>
+              <div class="analysis-config api-notion-config">
+                <label class="field compact">
+                  <span>Notion API Key</span>
+                  <input id="apiNotionApiKey" type="password" placeholder="secret_...">
+                </label>
+                <label class="field compact api-field-span-2">
+                  <span>Notion Database ID</span>
+                  <input id="apiNotionDatabaseId" type="text" placeholder="32 位 UUID 或带分享链接的数据库地址">
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="inline-actions api-actions">
+            <button class="button" id="saveApiConfigButton" type="button">保存 API 配置</button>
+          </div>
+        </section>
+
+        <section class="panel tab-panel" id="panel-analysis" data-panel="analysis">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">模型辅助</p>
+              <h2>NL2SQL 分析台</h2>
+            </div>
+            <p class="micro-copy">分析页直接使用 API 管理页里保存的模型配置。</p>
+          </div>
+
+          <div class="analysis-layout">
+            <div class="analysis-config api-summary-grid">
+              <article class="hint-card api-summary-card">
+                <span class="section-kicker">Base URL</span>
+                <strong id="analysisConfiguredBaseUrl">未配置</strong>
+              </article>
+              <article class="hint-card api-summary-card">
+                <span class="section-kicker">Model</span>
+                <strong id="analysisConfiguredModel">未配置</strong>
+              </article>
+              <article class="hint-card api-summary-card">
+                <span class="section-kicker">API Key</span>
+                <strong id="analysisConfiguredApiKey">未配置</strong>
+              </article>
+            </div>
+
+            <div class="inline-actions api-link-actions">
+              <button class="button ghost" id="goApiConfigButton" type="button">前往 API 管理</button>
+            </div>
+
+            <div class="quick-prompts" id="analysisQuickPrompts">
+              <button class="quick-prompt" type="button">最近的岗位最常要求哪些技术？</button>
+              <button class="quick-prompt" type="button">哪些城市的 AI 产品岗最多？</button>
+              <button class="quick-prompt" type="button">高质量 JD 更常出现哪些关键词？</button>
+              <button class="quick-prompt" type="button">对我当前偏好来说，最缺的技能信号是什么？</button>
+            </div>
+
+            <label class="field analysis-question">
+              <span>问题</span>
+              <textarea id="analysisQuestion" rows="5" placeholder="例如：统计最近 30 条岗位里，出现频率最高的技术关键词和职责要求"></textarea>
+            </label>
+
+            <div class="inline-actions">
+              <button class="button" id="runAnalysisButton" type="button">生成 SQL 并分析</button>
+              <button class="button ghost" id="clearAnalysisButton" type="button">清空结果</button>
+            </div>
+          </div>
+
+          <div class="analysis-result" id="analysisResult" hidden>
+            <div class="analysis-copy">
+              <div>
+                <p class="section-kicker">结果标题</p>
+                <h3 id="analysisTitle">分析结果</h3>
+              </div>
+              <p class="micro-copy" id="analysisAssumption"></p>
+              <div class="insight-card" id="analysisInsight"></div>
+            </div>
+            <div class="sql-card">
+              <div class="sql-head">
+                <p class="section-kicker">生成的 SQL</p>
+                <button class="button ghost tiny" id="copySqlButton" type="button">复制 SQL</button>
+              </div>
+              <pre id="analysisSql"></pre>
+            </div>
+            <div class="result-table-shell">
+              <table class="jobs-table compact-table">
+                <thead id="analysisTableHead"></thead>
+                <tbody id="analysisTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel tab-panel" id="panel-resume" data-panel="resume">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">匹配与优化</p>
+              <h2>简历分析</h2>
+            </div>
+            <p class="micro-copy">上传简历后会先转成 Markdown，再结合岗位库给改进建议，并支持多轮追问。</p>
+          </div>
+
+          <div class="resume-layout">
+            <div class="resume-upload-card">
+              <div class="log-head">
+                <h3>上传简历</h3>
+                <span class="micro-copy" id="resumeUploadStatus">未上传</span>
+              </div>
+              <div class="resume-upload-actions">
+                <div class="file-upload-wrapper">
+                  <input id="resumeFile" type="file" accept=".pdf,.doc,.docx,.txt,.md" class="file-input-hidden">
+                  <label for="resumeFile" class="button secondary file-input-label">选择简历文件</label>
+                  <span id="resumeFileStatus" class="micro-copy file-status-text">未选择文件</span>
+                </div>
+                <button class="button" id="uploadResumeButton" type="button">上传并分析</button>
+                <button class="button ghost" id="resetResumeButton" type="button">重置会话</button>
+              </div>
+
+              <div class="resume-snapshot" id="resumeSnapshot" hidden>
+                <div class="hint-card">
+                  <span class="section-kicker">匹配岗位（Top 10）</span>
+                  <div class="resume-matched" id="resumeMatchedJobs"></div>
+                </div>
+
+                <div class="sql-card">
+                  <div class="sql-head">
+                    <p class="section-kicker">简历 Markdown 预览</p>
+                    <button class="button ghost tiny" id="copyResumeMarkdownButton" type="button">复制预览</button>
+                  </div>
+                  <div id="resumeMarkdownPreview" class="md-content"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="resume-chat-card">
+              <div class="log-head">
+                <h3>对话窗口</h3>
+                <span class="micro-copy">可多轮提问：匹配岗位、技能差距、项目改写等</span>
+              </div>
+              <div class="chat-messages" id="resumeChatMessages" aria-live="polite"></div>
+              <div class="chat-input">
+                <textarea id="resumeChatInput" rows="3" placeholder="例如：我更想投产品/数据方向，应该怎么改简历？"></textarea>
+                <button class="button" id="resumeChatSendButton" type="button">发送</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <div class="toast" id="toast" hidden></div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

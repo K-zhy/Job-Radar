@@ -1,0 +1,70 @@
+# internship-prefs.yaml - 求职偏好配置
+
+# 目标城市列表
+cities:
+  - 上海
+  - 杭州
+  - 南京
+  - 苏州
+  - 无锡
+  - 宁波
+
+# 职位类型：全职、实习、校招
+job_type: 全职
+
+# 薪资要求
+salary:
+  min_day: 150      # 日薪下限（元/天，适用于实习）
+  min_month: 3000   # 月薪下限（元/月，适用于全职/校招）
+
+# 公司规模偏好 (BOSS直聘规模代码：20-99人=302, 100-499人=303)
+scales:
+  - 20-99人
+  - 100-499人
+
+# 岗位方向搜索词
+queries:
+  - AI产品
+  - AI产品经理
+  - 大模型产品
+  - AI Agent
+  - 机器学习产品
+
+# 过滤规则
+filters:
+  # 留空或为空列表则使用脚本内部默认的排除列表
+  # 如果不希望排除任何大厂，可填入 ["无"] 或 ["不限"]
+  exclude_big_tech:
+    - "无"
+  
+  exclude_non_tech: 
+    - 销售
+    - 客服
+    - 行政
+    - 财务
+    - 人事
+    - hr
+    - 猎头
+    - 外包
+    - 派遣
+
+  # 自定义额外排除关键词
+  exclude_extra: []
+
+# 技术栈/偏好标签（可用于后续 JD 匹配和排序）
+preferred_tags:
+  - LLM
+  - Prompt Engineering
+  - Agent
+  - RAG
+  - AI产品
+  - 产品设计
+
+# 其他个人信息（供大模型自动投递或分析时参考）
+profile:
+  education: 本科
+  internship_duration: 3个月以上
+  note: 侧重于 AI 产品相关岗位，希望在江浙沪地区。
+
+# Notion 数据库 ID
+notion_db_id: 

@@ -1,0 +1,7 @@
+llm:
+  base_url: https://api.longcat.chat/openai/v1/chat/completions
+  model: LongCat-Flash-Lite
+  api_key: 
+notion:
+  api_key: ''
+  database_id: ''
